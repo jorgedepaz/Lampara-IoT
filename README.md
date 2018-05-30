@@ -5,3 +5,4 @@ Herramienta para manipular archivos y ejecutar codigo en una placa con micropyth
 https://github.com/adafruit/ampy
 
 Esquemático para conexion del relay: https://i.stack.imgur.com/VcJCl.gif
+Servidor público sugerido: iot.eclipse.org
