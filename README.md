@@ -1,5 +1,5 @@
 # MicroPythonUMG
-Ejemplo básico de iot y mqtt hecho en micropython.
+Ejemplo básico de iot con mqtt hecho en micropython.
 
 Herramienta para manipular archivos y ejecutar codigo en una placa con micropython
 https://github.com/adafruit/ampy
