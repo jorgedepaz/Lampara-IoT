@@ -1,4 +1,4 @@
-# MicroPythonUMG
+# MicroPythonMQTT
 Ejemplo básico de IoT utilizando MQTT hecho en micropython.
 
 Herramienta para manipular archivos y ejecutar codigo en una placa con micropython
