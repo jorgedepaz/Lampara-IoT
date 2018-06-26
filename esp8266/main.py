@@ -1,66 +1,116 @@
-import machine
-import ubinascii
-from simple import MQTTClient
+# Tested using the releases:
+#   ESP8266
+#       MicroPython 1.9.3
+#       MicroPython 1.9.4
+#       CircuitPython 2.3.1     (needs addition of CircuitPython specific umqtt module)
+#       CircuitPython 3.0.0     (needs addition of CircuitPython specific umqtt module)
+#   ESP32
+#       MicroPython 1.9.4       (needs addition of MicroPython umqtt module)
+#
+# Tested using the following boards:
+#   Adafruit Feather HUZZAH ESP8266
+#   Adafruit Feather HUZZAH ESP32
+#   WeMos D1 Mini
+#
+# User configuration parameters are indicated with "ENTER_".
 from machine import Pin
+import network
+import time
+from umqtt.robust import MQTTClient
+import os
+import gc
+import sys
 
-# Configuracion de pines GPIO para salida
-led = Pin(16, Pin.OUT)
-pin = Pin(2, Pin.OUT)
+led = Pin(2,Pin.OUT)
+# the following function is the callback which is
+# called when subscribed data is received
+def cb(topic, msg):
+    print('Subscribe:  Received Data:  Topic = {}, Msg = {}\n'.format(topic, msg))
+    if msg == b'ON':
+        led.value(0)
+    elif msg == b'OFF':
+        led.value(1)
+    #free_heap = int(str(msg,'utf-8'))
 
-# Diccionario con los parametros de configuracion del servidor MQTT
-CONFIG = {
-#test.mosquitto.org
-#iot.eclipse.org
-    "MQTT_BROKER": "iot.eclipse.org",
-    "USER": "",
-    "PASSWORD": "",
-    "PORT": 1883,
-    "TOPIC": b"test",
-    # Identificador unico del chip
-    "CLIENT_ID": b"esp8266_" + ubinascii.hexlify(machine.unique_id())
-}
-#Creamos una intancia de network.STA_IF, statation interface
-def do_connect():
-    import network
-    sta_if = network.WLAN(network.STA_IF)
-    if not sta_if.isconnected():
-        print('conectando a la red...')
-        sta_if.active(True)
-        sta_if.connect('Xnf25', 't3z25Y.+')
-        #sta_if.connect('LA ESQUINA', 'LRE01486')
-        while not sta_if.isconnected():
-            pass
-    print('Configuracion de red:', sta_if.ifconfig())
+# WiFi connection information
+WIFI_SSID = 'Honeypot12'
+WIFI_PASSWORD = 'quierointernet'
 
-# Funcion para manejar la informacion recibida
-def onMessage(topic, msg):
-    print("Topic: %s, Message: %s" % (topic, msg))
+# turn off the WiFi Access Point
+ap_if = network.WLAN(network.AP_IF)
+ap_if.active(False)
 
-    if msg == b"on":
-        pin.off()
-        led.on()
-    elif msg == b"off":
-        pin.on()
-        led.off()
+# connect the device to the WiFi network
+wifi = network.WLAN(network.STA_IF)
+wifi.active(True)
+wifi.connect(WIFI_SSID, WIFI_PASSWORD)
 
+# wait until the device is connected to the WiFi network
+MAX_ATTEMPTS = 20
+attempt_count = 0
+while not wifi.isconnected() and attempt_count < MAX_ATTEMPTS:
+    attempt_count += 1
+    time.sleep(1)
 
-def listen():
-    # Creamos una instancia de MQTTClient
-    client = MQTTClient(CONFIG['CLIENT_ID'], CONFIG['MQTT_BROKER'], user=CONFIG['USER'], password=CONFIG['PASSWORD'],
-                        port=CONFIG['PORT'])
-    # Vinculamos un call back Handler que es la funcion que se llamara al recivir un mensaje
-    client.set_callback(onMessage)
+if attempt_count == MAX_ATTEMPTS:
+    print('could not connect to the WiFi network')
+    sys.exit()
+
+# create a random MQTT clientID
+random_num = int.from_bytes(os.urandom(3), 'little')
+mqtt_client_id = bytes('client_'+str(random_num), 'utf-8')
+
+# connect to Adafruit IO MQTT broker using unsecure TCP (port 1883)
+#
+# To use a secure connection (encrypted) with TLS:
+#   set MQTTClient initializer parameter to "ssl=True"
+#   Caveat: a secure connection uses about 9k bytes of the heap
+#         (about 1/4 of the micropython heap on the ESP8266 platform)
+ADAFRUIT_IO_URL = b'io.adafruit.com'
+ADAFRUIT_USERNAME = b'alejorivera'
+ADAFRUIT_IO_KEY = b'02f8fa1bb1424e2e80dbcb3abc38169e'
+ADAFRUIT_IO_FEEDNAME = b'onoff'
+
+client = MQTTClient(client_id=mqtt_client_id,
+                    server=ADAFRUIT_IO_URL,
+                    user=ADAFRUIT_USERNAME,
+                    password=ADAFRUIT_IO_KEY,
+                    ssl=False)
+
+try:
     client.connect()
-    client.publish("test", "ESP8266 is Connected")
-    client.subscribe(CONFIG['TOPIC'])
-    print("ESP8266 is Connected to %s and subscribed to %s topic" % (CONFIG['MQTT_BROKER'], CONFIG['TOPIC']))
+except Exception as e:
+    print('could not connect to MQTT server {}{}'.format(type(e).__name__, e))
+    sys.exit()
 
+# publish free heap statistics to Adafruit IO using MQTT
+# subscribe to the same feed
+#
+# format of feed name:
+#   "ADAFRUIT_USERNAME/feeds/ADAFRUIT_IO_FEEDNAME"
+mqtt_feedname = bytes('{:s}/feeds/{:s}'.format(ADAFRUIT_USERNAME, ADAFRUIT_IO_FEEDNAME), 'utf-8')
+client.set_callback(cb)
+client.subscribe(mqtt_feedname)
+PUBLISH_PERIOD_IN_SEC = 10
+SUBSCRIBE_CHECK_PERIOD_IN_SEC = 0.5
+accum_time = 0
+while True:
     try:
-        while True:
-            msg = client.wait_msg()
-            # msg = (client.check_msg())
-    finally:
-        client.disconnect()
+        # Publish
+        if accum_time >= PUBLISH_PERIOD_IN_SEC:
+            free_heap_in_bytes = gc.mem_free()
+            print('Publish:  freeHeap = {}'.format(free_heap_in_bytes))
+            client.publish(mqtt_feedname,
+                           bytes(str(free_heap_in_bytes), 'utf-8'),
+                           qos=0)
+            accum_time = 0
 
-do_connect()
-listen()
+        # Subscribe.  Non-blocking check for a new message.
+        client.check_msg()
+
+        time.sleep(SUBSCRIBE_CHECK_PERIOD_IN_SEC)
+        accum_time += SUBSCRIBE_CHECK_PERIOD_IN_SEC
+    except KeyboardInterrupt:
+        print('Ctrl-C pressed...exiting')
+        client.disconnect()
+        sys.exit()
