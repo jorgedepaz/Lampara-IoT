@@ -1,5 +1,5 @@
 # MicroPythonMQT
-Interruptor 110v-220v AC iot utilizando la nube de adafruit.io a travez de MQTT.
+Este proyecto es un interruptor 110v-220v AC conectado a la nube a travez de MQTT.
 
 Informacion del servidor mqtt y como utilizar la API de adafruit
 https://learn.adafruit.com/adafruit-io/mqtt-api
