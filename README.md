@@ -1,11 +1,14 @@
-# MicroPythonMQTT
-Ejemplo básico de IoT utilizando MQTT hecho en micropython.
+# MicroPythonMQT
+Interruptor 110v-220v AC iot utilizando la nube de adafruit.io a travez de MQTT.
 
-Herramienta para manipular archivos y ejecutar codigo en una placa con micropython
+Informacion del servidor mqtt y como utilizar la API de adafruit
+https://learn.adafruit.com/adafruit-io/mqtt-api
+
+Herramienta para manipular el sistema de archivos de la placa ESP8266 previamente cargada con micropython.
 https://github.com/adafruit/ampy
 
 Esquemático para conexion del relay: https://drive.google.com/file/d/1z4AuOfRUvwHJkY3l0V-Ltk4bKYr6AVsD/view?usp=sharing
 
-Servidor público sugerido: iot.eclipse.org
+Documentacion de la libreria umqtt.robust https://github.com/micropython/micropython-lib/tree/master/umqtt.robust
 
-Documentacion de la libreria umqtt.simple https://github.com/pfalcon/micropython-lib/tree/master/umqtt.simple
+
