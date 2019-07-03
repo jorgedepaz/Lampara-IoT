@@ -1,7 +1,7 @@
 # MicroPythonMQTT
 Este proyecto es un interruptor 110v-220v AC conectado a la nube a travez de MQTT.
 
-Informacion del servidor mqtt y como utilizar la API de adafruit
+Informacion del broker mqtt y como utilizar la API de adafruit
 https://learn.adafruit.com/adafruit-io/mqtt-api
 
 Herramienta para manipular el sistema de archivos de la placa ESP8266 via USB.
